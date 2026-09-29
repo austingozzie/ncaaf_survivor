@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCAAF Survivor</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3fb950;
+    --accent2: #58a6ff;
+    --danger: #f85149;
+    --gold: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 60px;
+  }
+  header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 20;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .hamburger {
+    width: 34px; height: 34px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px;
+    cursor: pointer;
+  }
+  .hamburger span { width: 16px; height: 2px; background: var(--text); border-radius: 2px; }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .userbox { font-size: 13px; color: var(--muted); cursor: pointer; }
+  .userbox b { color: var(--text); }
+  .mode-menu {
+    position: fixed;
+    top: 56px;
+    left: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 30;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .mode-menu button {
+    display: block;
+    width: 180px;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mode-menu button:hover { background: #1c2430; }
+  .mode-menu button + button { border-top: 1px solid var(--border); }
+  nav.mode-nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    overflow-x: auto;
+  }
+  nav.mode-nav button {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  nav.mode-nav button.active { color: var(--text); border-bottom-color: var(--accent2); }
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .game {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .game-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .pick-row { display: flex; gap: 8px; }
+  .pick-btn {
+    flex: 1;
+    padding: 10px;
+    background: #161b22;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .pick-btn b { display: block; font-size: 14px; }
+  .pick-btn .rank { color: var(--gold); font-size: 11px; }
+  .pick-btn.selected { border-color: var(--accent2); background: rgba(88,166,255,0.15); }
+  .pick-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pick-btn.win { border-color: var(--accent); background: rgba(63,185,80,0.15); }
+  .pick-btn.loss { border-color: var(--danger); background: rgba(248,81,73,0.12); }
+  .pick-btn.muted { opacity: 0.35; }
+  .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+  .tag.locked { background: #30363d; color: var(--muted); }
+  .tag.live { background: rgba(248,81,73,0.22); color: var(--danger); }
+  input, select {
+    width: 100%;
+    padding: 10px;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  button.primary {
+    padding: 10px 16px;
+    background: var(--accent2);
+    border: none;
+    border-radius: 8px;
+    color: #0d1117;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button.secondary {
+    padding: 8px 12px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .center { text-align: center; }
+  .empty { color: var(--muted); text-align: center; padding: 30px 0; font-size: 14px; }
+  .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+  .week-nav span { font-weight: 600; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 10px 18px; border-radius: 8px; font-size: 13px;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .hidden { display: none !important; }
+  .field-scroll { overflow-x: auto; }
+
+  /* Survivor-specific */
+  .survivor-sheet-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+  }
+  .survivor-card {
+    min-width: 84px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .survivor-card.win { border-color: var(--accent); }
+  .survivor-card.loss { border-color: var(--danger); }
+  .sc-week { font-size: 11px; color: var(--muted); }
+  .sc-team { font-size: 13px; font-weight: 600; margin: 6px 0; min-height: 18px; }
+  .survivor-card button { width: 100%; padding: 6px; font-size: 11px; }
+  .status-banner { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  #fieldTable table { font-size: 12px; white-space: nowrap; }
+  #fieldTable th, #fieldTable td { padding: 6px 8px; }
+  .admin-game-row { font-size: 13px; padding: 8px; border-bottom: 1px solid var(--border); }
+  .rules-note { font-size: 12px; color: var(--muted); margin-top: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <button class="hamburger" onclick="toggleModeMenu()"><span></span><span></span><span></span></button>
+    <h1 id="appTitle">NCAAF Survivor</h1>
+  </div>
+  <div class="userbox" id="userbox" onclick="toggleAccountMenu()"></div>
+</header>
+
+<div id="modeMenu" class="mode-menu hidden">
+  <button onclick="setMode('survivor')">My Picks</button>
+  <button onclick="setMode('field')">Field</button>
+  <button id="commishMenuBtn" onclick="setMode('commish')" class="hidden">Commish</button>
+</div>
+
+<div id="accountMenu" class="mode-menu hidden" style="left:auto;right:16px;width:220px;">
+  <div style="padding:12px 14px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Change password</div>
+    <input id="newPasswordInput" type="password" placeholder="new password" style="margin-bottom:8px;">
+    <button class="secondary" onclick="changePassword()" style="width:100%;margin-bottom:10px;">Update password</button>
+    <button class="secondary" onclick="logout()" style="width:100%;">Log out</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="card">
+    <h3 style="margin-top:0">Log in or create an account</h3>
+    <input id="loginInput" placeholder="username" autocomplete="off">
+    <input id="loginPassword" type="password" placeholder="password" autocomplete="off">
+    <button class="primary" onclick="login()">Enter</button>
+    <p class="rules-note">New username? This creates your account with that password.</p>
+    <p class="rules-note">Each week, pick one team from the AP Top 10 to win outright. Once you use a team, it's gone for the rest of the season. Lose (or miss a pick) and you're eliminated.</p>
+  </div>
+
+  <!-- ============ SURVIVOR: MY PICKS ============ -->
+  <div id="survivorTab" class="hidden">
+    <div id="survivorNoLogin" class="card hidden">
+      <p style="margin:0;color:var(--muted)">Log in above to make picks.</p>
+    </div>
+    <div id="survivorContent" class="hidden">
+      <button class="secondary" onclick="refreshSurvivorData()" style="width:100%;margin-bottom:12px;">🔄 Refresh</button>
+      <div class="status-banner" id="statusBanner"></div>
+      <div class="survivor-sheet-scroll" id="survivorSheet"></div>
+
+      <div id="picker" class="card hidden">
+        <div class="week-nav">
+          <span id="pickerWeekLabel">Week -</span>
+          <div style="display:flex;gap:8px;">
+            <button class="secondary" onclick="cancelEdit()">Cancel</button>
+            <button class="primary" onclick="savePick()">Save</button>
+          </div>
+        </div>
+        <p class="rules-note" id="pickerHint"></p>
+        <div id="pickerGamesList"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="secondary" onclick="cancelEdit()" style="flex:1;">Cancel</button>
+          <button class="primary" onclick="savePick()" style="flex:1;">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FIELD ============ -->
+  <div id="fieldTab" class="hidden">
+    <div class="card field-scroll">
+      <div id="fieldTable"></div>
+    </div>
+  </div>
+
+  <!-- ============ COMMISH ============ -->
+  <div id="adminTab" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0">Commissioners</h3>
+      <p class="rules-note">Toggle who can access this page.</p>
+      <div id="commishMembersList"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Who's picked</h3>
+      <p class="rules-note">Who's submitted a pick for the week and who's still missing.</p>
+      <div class="week-nav">
+        <button class="secondary" onclick="changeWhoPickedWeek(-1)">&larr;</button>
+        <span id="whoPickedWeekLabel">Week -</span>
+        <button class="secondary" onclick="changeWhoPickedWeek(1)">&rarr;</button>
+      </div>
+      <div id="whoPickedList"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Import week (AP Top 10 + games)</h3>
+      <p class="rules-note">Pulls the current AP Top 25 poll (uses ranks 1&ndash;10) and every FBS game this week involving a Top 10 team.</p>
+      <div class="week-nav">
+        <button class="secondary" onclick="changeAdminWeek(-1)">&larr;</button>
+        <span id="adminWeekLabel">Week -</span>
+        <button class="secondary" onclick="changeAdminWeek(1)">&rarr;</button>
+      </div>
+      <button class="primary" onclick="importWeek()" style="width:100%;">Fetch AP Top 10 + games for this week</button>
+      <div id="importStatus" style="font-size:13px;color:var(--muted);margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Games this week</h3>
+      <div id="adminGamesList"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Refresh live scores &amp; grade</h3>
+      <button class="primary" onclick="refreshScoresAndGrade()" style="width:100%;">Fetch scores + grade this week</button>
+      <div id="gradeStatus" style="font-size:13px;color:var(--muted);margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Time Travel</h3>
+      <p class="rules-note">Enter or fix a pick on behalf of any member for any week &mdash; bypasses locks and the used-team check.</p>
+      <select id="ttMemberSelect"></select>
+      <div class="week-nav">
+        <button class="secondary" onclick="changeTTWeek(-1)">&larr;</button>
+        <span id="ttWeekLabel">Week -</span>
+        <button class="secondary" onclick="changeTTWeek(1)">&rarr;</button>
+      </div>
+      <div id="ttGamesList"></div>
+      <button class="primary" onclick="saveTimeTravel()" style="width:100%;">Save on their behalf</button>
+      <div id="ttStatus" style="font-size:13px;color:var(--muted);margin-top:8px;"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= CONFIG — fill these in from your Supabase project ================= */
+const SUPABASE_URL = "https://tsvnvtxvcxcidlmuasko.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_XLxr6koWIwXoYatFfAPVVw_LlnjrgxU";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const SEASON_YEAR = 2026;
+const TOTAL_WEEKS = 16; // through conference championship week
+const SEASON_START = new Date('2026-08-29T00:00:00Z'); // confirmed CFB 2026 Week 1 start (ESPN)
+
+let currentMember = null;
+let appMode = 'survivor';
+
+function getDefaultWeek() {
+  const now = new Date();
+  const diffWeeks = Math.floor((now - SEASON_START) / (7*24*60*60*1000)) + 1;
+  return Math.min(Math.max(diffWeeks, 1), TOTAL_WEEKS);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function shortTeam(name) {
+  if (!name) return '';
+  const parts = name.trim().split(' ');
+  return parts[parts.length - 1];
+}
+
+/* ---------- AUTH / MEMBERS ---------- */
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function login() {
+  const raw = document.getElementById('loginInput').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!raw || !password) { toast('Enter a username and password'); return; }
+  const username = raw;
+  const lower = username.toLowerCase();
+
+  let { data: existing, error } = await sb.from('ncaafsurv_members').select('*');
+  if (error) { toast('Error: ' + error.message); return; }
+
+  let match = existing.find(m => m.username.toLowerCase() === lower);
+  const passHash = await sha256(password);
+
+  if (!match) {
+    const isFirstMember = existing.length === 0;
+    const { data: created, error: cErr } = await sb.from('ncaafsurv_members')
+      .insert({ username, is_commissioner: isFirstMember, password_hash: passHash }).select().single();
+    if (cErr) { toast('Error creating user: ' + cErr.message); return; }
+    match = created;
+  } else if (!match.password_hash) {
+    const { error: uErr } = await sb.from('ncaafsurv_members').update({ password_hash: passHash }).eq('id', match.id);
+    if (uErr) { toast('Error: ' + uErr.message); return; }
+    match.password_hash = passHash;
+  } else if (match.password_hash !== passHash) {
+    toast('Wrong password');
+    return;
+  }
+
+  currentMember = match;
+  localStorage.setItem('ncaafsurv_username', match.username);
+  enterApp();
+}
+
+function toggleAccountMenu() {
+  if (!currentMember) return;
+  document.getElementById('accountMenu').classList.toggle('hidden');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('accountMenu');
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !e.target.closest('#userbox')) {
+    menu.classList.add('hidden');
+  }
+});
+
+async function changePassword() {
+  const pw = document.getElementById('newPasswordInput').value;
+  if (!pw) { toast('Enter a new password'); return; }
+  const hash = await sha256(pw);
+  const { error } = await sb.from('ncaafsurv_members').update({ password_hash: hash }).eq('id', currentMember.id);
+  if (error) { toast('Error: ' + error.message); return; }
+  document.getElementById('newPasswordInput').value = '';
+  document.getElementById('accountMenu').classList.add('hidden');
+  toast('Password updated');
+}
+
+function logout() {
+  localStorage.removeItem('ncaafsurv_username');
+  location.reload();
+}
+
+function enterApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('userbox').innerHTML = `Playing as <b>${currentMember.username}</b> ▾`;
+  document.getElementById('survivorNoLogin').classList.add('hidden');
+  document.getElementById('survivorContent').classList.remove('hidden');
+  document.getElementById('commishMenuBtn').classList.toggle('hidden', !currentMember.is_commissioner);
+  setMode('survivor');
+}
+
+async function tryAutoLogin() {
+  const saved = localStorage.getItem('ncaafsurv_username');
+  if (!saved) return;
+  const { data } = await sb.from('ncaafsurv_members').select('*').ilike('username', saved);
+  if (data && data.length) {
+    currentMember = data[0];
+    enterApp();
+  }
+}
+
+/* ---------- MODE SWITCH ---------- */
+
+function toggleModeMenu() {
+  document.getElementById('modeMenu').classList.toggle('hidden');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('modeMenu');
+  if (!menu.classList.contains('hidden') && !menu.contains(e.target) && !e.target.closest('.hamburger')) {
+    menu.classList.add('hidden');
+  }
+});
+
+function setMode(mode) {
+  appMode = mode;
+  document.getElementById('modeMenu').classList.add('hidden');
+  document.getElementById('survivorTab').classList.add('hidden');
+  document.getElementById('fieldTab').classList.add('hidden');
+  document.getElementById('adminTab').classList.add('hidden');
+
+  if (mode === 'survivor') {
+    document.getElementById('appTitle').textContent = 'NCAAF Survivor';
+    document.getElementById('survivorTab').classList.remove('hidden');
+    if (!currentMember) {
+      document.getElementById('survivorNoLogin').classList.remove('hidden');
+      document.getElementById('survivorContent').classList.add('hidden');
+    }
+    openSurvivor();
+  } else if (mode === 'field') {
+    document.getElementById('appTitle').textContent = 'Survivor — Field';
+    document.getElementById('fieldTab').classList.remove('hidden');
+    loadField();
+  } else if (mode === 'commish') {
+    if (!currentMember || !currentMember.is_commissioner) { toast('Commissioners only'); return; }
+    document.getElementById('appTitle').textContent = 'Survivor — Commish';
+    document.getElementById('adminTab').classList.remove('hidden');
+    loadCommishMembers();
+    renderWhoPicked();
+    loadAdminWeekGames();
+    openTimeTravel();
+  }
+}
+
+/* ---------- shared helpers ---------- */
+
+let allMembersCache = [];
+async function loadAllMembers() {
+  const { data } = await sb.from('ncaafsurv_members').select('*').order('username');
+  allMembersCache = data || [];
+  return allMembersCache;
+}
+
+async function addLog(action, details) {
+  await sb.from('ncaafsurv_change_log').insert({ action, details });
+}
+
+function fmtKickoff(iso) {
+  return new Date(iso).toLocaleString('en-US', {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+}
+
+/* ---------- SURVIVOR: MY PICKS ---------- */
+
+let allGames = [];
+let gamesById = {};
+let gamesByWeek = {};
+let myPicks = {};       // week_num -> pick row
+let myPicksList = [];
+let editWeek = null;
+let selection = null;   // {gameId, side, team}
+let userClosedPicker = false;
+
+async function loadAllGames() {
+  const { data, error } = await sb.from('ncaafsurv_games').select('*').eq('season_year', SEASON_YEAR).order('kickoff');
+  if (error) { toast('Error: ' + error.message); return; }
+  allGames = data || [];
+  gamesById = {};
+  gamesByWeek = {};
+  allGames.forEach(g => {
+    gamesById[g.id] = g;
+    (gamesByWeek[g.week_num] ||= []).push(g);
+  });
+}
+
+async function loadMyPicks() {
+  const { data, error } = await sb.from('ncaafsurv_survivor_picks')
+    .select('*').eq('member_id', currentMember.id).eq('season_year', SEASON_YEAR);
+  if (error) { toast('Error: ' + error.message); return; }
+  myPicksList = data || [];
+  myPicks = {};
+  myPicksList.forEach(p => myPicks[p.week_num] = p);
+}
+
+async function refreshSurvivorData() {
+  toast('Refreshing...');
+  try {
+    await loadAllGames();
+    await loadMyPicks();
+    const weeksToRefresh = new Set([getDefaultWeek()]);
+    if (editWeek) weeksToRefresh.add(editWeek);
+    myPicksList.forEach(p => {
+      const g = gamesById[p.game_id];
+      if (!g || g.status !== 'final') weeksToRefresh.add(p.week_num);
+    });
+    for (const w of weeksToRefresh) {
+      await gradeWeek(w);
+    }
+    await loadAllGames();
+    renderSurvivor();
+    toast('Refreshed');
+  } catch (e) {
+    toast('Error: ' + e.message);
+  }
+}
+
+async function openSurvivor() {
+  if (!currentMember) {
+    document.getElementById('survivorNoLogin').classList.remove('hidden');
+    document.getElementById('survivorContent').classList.add('hidden');
+    return;
+  }
+  document.getElementById('survivorNoLogin').classList.add('hidden');
+  document.getElementById('survivorContent').classList.remove('hidden');
+
+  await loadAllGames();
+  await loadMyPicks();
+
+  const defWeek = getDefaultWeek();
+  if (!userClosedPicker && editWeek === null && !myPicks[defWeek]) {
+    editWeek = defWeek;
+  }
+  renderSurvivor();
+}
+
+// Sorted by week: first week with a final, lost (non-tie) game ends the streak.
+function computeStatus(memberId, picksList, gamesMap) {
+  const sorted = picksList.slice().sort((a, b) => a.week_num - b.week_num);
+  for (const p of sorted) {
+    const g = gamesMap[p.game_id];
+    if (!g || g.status !== 'final' || g.home_score == null || g.away_score == null) break;
+    if (g.home_score === g.away_score) continue; // push/tie, keep going
+    const pickedHome = p.picked_team === g.home_team;
+    const won = pickedHome ? g.home_score > g.away_score : g.away_score > g.home_score;
+    if (!won) return { status: 'eliminated', outWeek: p.week_num };
+  }
+  return { status: 'alive', outWeek: null };
+}
+
+function usedTeams(picksList, excludeWeek) {
+  const used = new Set();
+  picksList.forEach(p => { if (p.week_num !== excludeWeek) used.add(p.picked_team); });
+  return used;
+}
+
+function renderSurvivor() {
+  const status = computeStatus(currentMember.id, myPicksList, gamesById);
+  document.getElementById('statusBanner').innerHTML = status.status === 'eliminated'
+    ? `<span style="color:var(--danger)">Eliminated — Week ${status.outWeek}</span>`
+    : `<span style="color:var(--accent)">Alive</span>`;
+
+  const now = new Date();
+  let sheetHtml = '';
+  for (let w = 1; w <= TOTAL_WEEKS; w++) {
+    const pick = myPicks[w];
+    const game = pick ? gamesById[pick.game_id] : null;
+    const locked = game && new Date(game.kickoff) <= now;
+    let resultClass = '';
+    if (game && game.status === 'final' && game.home_score != null && pick) {
+      const tie = game.home_score === game.away_score;
+      const pickedHome = pick.picked_team === game.home_team;
+      const won = tie || (pickedHome ? game.home_score > game.away_score : game.away_score > game.home_score);
+      resultClass = won ? 'win' : 'loss';
+    }
+    sheetHtml += `<div class="survivor-card ${resultClass}">
+        <div class="sc-week">Wk ${w}</div>
+        <div class="sc-team">${pick ? shortTeam(pick.picked_team) : '—'}</div>
+        <button class="secondary" ${locked ? 'disabled' : ''} onclick="editPickWeek(${w})">${pick ? (locked ? 'Locked' : 'Edit') : 'Pick'}</button>
+      </div>`;
+  }
+  document.getElementById('survivorSheet').innerHTML = sheetHtml;
+
+  const pickerEl = document.getElementById('picker');
+  if (editWeek === null) {
+    pickerEl.classList.add('hidden');
+  } else {
+    pickerEl.classList.remove('hidden');
+    renderPickerGames(editWeek);
+  }
+}
+
+function editPickWeek(w) {
+  userClosedPicker = false;
+  editWeek = w;
+  selection = null;
+  renderSurvivor();
+  document.getElementById('picker').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelEdit() {
+  userClosedPicker = true;
+  editWeek = null;
+  selection = null;
+  renderSurvivor();
+}
+
+function renderPickerGames(week) {
+  document.getElementById('pickerWeekLabel').textContent = 'Week ' + week;
+  const games = (gamesByWeek[week] || []).slice().sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  const used = usedTeams(myPicksList, week);
+  const existingPick = myPicks[week];
+  if (!selection && existingPick) {
+    const g = gamesById[existingPick.game_id];
+    selection = {
+      gameId: existingPick.game_id,
+      side: g && existingPick.picked_team === g.home_team ? 'home' : 'away',
+      team: existingPick.picked_team
+    };
+  }
+  const now = new Date();
+  const el = document.getElementById('pickerGamesList');
+  const hint = document.getElementById('pickerHint');
+  hint.textContent = games.length
+    ? 'Only teams currently in the AP Top 10 are pickable.'
+    : '';
+
+  if (!games.length) { el.innerHTML = '<div class="empty">No AP Top 10 games loaded for this week yet. Check back once the commish imports the week.</div>'; return; }
+
+  el.innerHTML = games.map(g => {
+    const locked = new Date(g.kickoff) <= now;
+    const sides = [
+      { side: 'away', team: g.away_team, rank: g.away_ap_rank },
+      { side: 'home', team: g.home_team, rank: g.home_ap_rank }
+    ].filter(s => s.rank != null);
+
+    let tag = '';
+    if (g.status === 'final') tag = `<span class="tag locked">FINAL ${g.away_score}-${g.home_score}</span>`;
+    else if (g.status === 'in_progress') tag = `<span class="tag live">LIVE ${g.away_score}-${g.home_score}</span>`;
+    else if (locked) tag = '<span class="tag locked">LOCKED</span>';
+
+    return `<div class="game">
+      <div class="game-meta">
+        <span>${g.away_team} @ ${g.home_team} &middot; ${fmtKickoff(g.kickoff)}</span>
+        ${tag}
+      </div>
+      <div class="pick-row">
+        ${sides.map(s => {
+          const isCurrentPick = existingPick && existingPick.picked_team === s.team;
+          const usedUp = used.has(s.team) && !isCurrentPick;
+          const disabled = locked || usedUp;
+          const selected = selection && selection.gameId === g.id && selection.side === s.side;
+          const note = usedUp ? 'Already used' : '';
+          const teamEsc = s.team.replace(/'/g, "\\'");
+          return `<button class="pick-btn ${selected ? 'selected' : ''}" ${disabled ? 'disabled' : ''}
+            onclick="selectPick('${g.id}','${s.side}','${teamEsc}')">
+            <span class="rank">#${s.rank}</span><b>${s.team}</b>${note ? `<span style="font-size:11px;color:var(--muted)">${note}</span>` : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectPick(gameId, side, team) {
+  selection = { gameId, side, team };
+  renderPickerGames(editWeek);
+}
+
+async function savePick() {
+  if (!selection) { toast('Pick a team first'); return; }
+  const week = editWeek;
+  const payload = {
+    member_id: currentMember.id,
+    week_num: week,
+    season_year: SEASON_YEAR,
+    game_id: selection.gameId,
+    picked_team: selection.team,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await sb.from('ncaafsurv_survivor_picks')
+    .upsert(payload, { onConflict: 'member_id,week_num,season_year' })
+    .select().single();
+  if (error) { toast('Error: ' + error.message); return; }
+
+  myPicks[week] = data;
+  const idx = myPicksList.findIndex(p => p.week_num === week);
+  if (idx >= 0) myPicksList[idx] = data; else myPicksList.push(data);
+
+  selection = null;
+  editWeek = null;
+  userClosedPicker = true;
+  toast('Pick saved');
+  renderSurvivor();
+}
+
+/* ---------- FIELD (matrix) ---------- */
+
+let fieldMembers = [];
+let fieldPicks = [];
+
+async function loadField() {
+  await loadAllGames();
+  fieldMembers = await loadAllMembers();
+  const { data: picks } = await sb.from('ncaafsurv_survivor_picks').select('*').eq('season_year', SEASON_YEAR);
+  fieldPicks = picks || [];
+  renderField();
+}
+
+function isRevealed(pick) {
+  if (!pick) return false;
+  const game = gamesById[pick.game_id];
+  return game && new Date(game.kickoff) <= new Date();
+}
+
+function renderField() {
+  const el = document.getElementById('fieldTable');
+  const weeks = Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1);
+  const head = '<tr><th>Member</th><th>Status</th>' + weeks.map(w => `<th class="center">${w}</th>`).join('') + '</tr>';
+
+  const rows = fieldMembers.map(m => {
+    const picks = fieldPicks.filter(p => p.member_id === m.id);
+    const status = computeStatus(m.id, picks, gamesById);
+    const statusLabel = status.status === 'eliminated' ? `Out Wk${status.outWeek}` : 'Alive';
+    const statusColor = status.status === 'eliminated' ? 'var(--danger)' : 'var(--accent)';
+
+    const cells = weeks.map(w => {
+      const pick = picks.find(p => p.week_num === w);
+      if (!pick) return '<td class="center" style="background:rgba(210,153,34,0.18)">—</td>';
+      const game = gamesById[pick.game_id];
+      const isFinal = game && game.status === 'final' && game.home_score != null;
+      let bg = 'rgba(88,166,255,0.18)'; // picked, not yet graded
+      if (isFinal) {
+        const tie = game.home_score === game.away_score;
+        const pickedHome = pick.picked_team === game.home_team;
+        const won = tie || (pickedHome ? game.home_score > game.away_score : game.away_score > game.home_score);
+        bg = won ? 'rgba(63,185,80,0.25)' : 'rgba(248,81,73,0.25)';
+      }
+      if (!isRevealed(pick)) return `<td class="center" style="background:${bg}">🔒</td>`;
+      return `<td class="center" style="background:${bg}">${shortTeam(pick.picked_team)}</td>`;
+    }).join('');
+
+    return `<tr><td>${m.username}</td><td style="color:${statusColor}">${statusLabel}</td>${cells}</tr>`;
+  }).join('');
+
+  el.innerHTML = `<table><thead>${head}</thead><tbody>${rows || `<tr><td colspan="${TOTAL_WEEKS+2}" class="empty">No members yet</td></tr>`}</tbody></table>`;
+}
+
+/* ---------- ESPN: rankings + scoreboard ---------- */
+
+function weekDateRange(week) {
+  const start = new Date(SEASON_START.getTime() + (week-1)*7*24*60*60*1000);
+  const end = new Date(start.getTime() + 7*24*60*60*1000);
+  const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
+  return `${fmt(start)}-${fmt(end)}`;
+}
+
+function weekDayList(week) {
+  const start = new Date(SEASON_START.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+  const days = [];
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+    days.push(d.toISOString().slice(0, 10).replace(/-/g, ''));
+  }
+  return days;
+}
+
+async function fetchEspnScoreboard(datesParam) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=${datesParam}&groups=80&limit=400`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`ESPN returned HTTP ${res.status}`);
+  const json = await res.json();
+  return json.events || [];
+}
+
+// ESPN's own week bucketing (?week=N&seasontype=2) is authoritative for CFB — it's how ESPN
+// itself divides the season, so "Week N" here always matches what ESPN calls Week N, with no
+// guessing at a season-start date. This is what makes catching up on past weeks reliable.
+async function fetchEspnScoreboardByWeek(week) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?week=${week}&seasontype=2&year=${SEASON_YEAR}&groups=80&limit=400`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`ESPN returned HTTP ${res.status}`);
+  const json = await res.json();
+  return json.events || [];
+}
+
+async function fetchWeekEvents(week) {
+  try {
+    const events = await fetchEspnScoreboardByWeek(week);
+    if (events.length) return events;
+  } catch (e) { /* fall through to the date-range approach below */ }
+
+  // Fallback only: a computed date range, then day-by-day, in case the week param ever fails.
+  const range = weekDateRange(week);
+  let rangeEvents = [];
+  try { rangeEvents = await fetchEspnScoreboard(range); } catch (e) { /* fall through */ }
+  if (rangeEvents.length) return rangeEvents;
+
+  const merged = [];
+  const seenIds = new Set();
+  for (const day of weekDayList(week)) {
+    try {
+      const dayEvents = await fetchEspnScoreboard(day);
+      for (const ev of dayEvents) {
+        if (!seenIds.has(ev.id)) { seenIds.add(ev.id); merged.push(ev); }
+      }
+    } catch (e) { /* skip a bad day */ }
+  }
+  return merged;
+}
+
+// AP Top 25 poll for a SPECIFIC week (needed to catch up on past weeks, not just "now").
+// ESPN's rankings/1 slot is always the AP poll, addressable historically via the core API by
+// season type + week — but Week 1 of the regular season (types/2/weeks/1) has NO AP entry;
+// the poll actually in effect for Week 1 games is the preseason poll, which lives under
+// types/1/weeks/1/rankings/1 instead. Missing this distinction silently grabs the Week 2 poll
+// instead (released after Week 1 games), which is a real team wrong for Week 1 (e.g. it showed
+// Texas A&M instead of the actual preseason #10, Oklahoma). Team is given as a $ref link
+// (.../teams/{id}) — the numeric id is pulled out of that URL, since that id is all we need to
+// match against the scoreboard's team.id.
+async function fetchApTop10(week) {
+  const tries = week === 1
+    ? [{ type: 1, week: 1, label: 'preseason' }, { type: 2, week: 2, label: 'Week 2' }]
+    : [{ type: 2, week, label: `Week ${week}` },
+       { type: 2, week: week - 1, label: `Week ${week - 1}` },
+       { type: 2, week: week + 1, label: `Week ${week + 1}` }];
+
+  for (const t of tries) {
+    if (t.week < 1 || t.week > TOTAL_WEEKS) continue;
+    try {
+      const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${SEASON_YEAR}/types/${t.type}/weeks/${t.week}/rankings/1?lang=en&region=us`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const map = {}; // team id -> {rank}
+      (json.ranks || []).forEach(r => {
+        if (r.current <= 10 && r.team && r.team.$ref) {
+          const m = r.team.$ref.match(/teams\/(\d+)/);
+          if (m) map[m[1]] = { rank: r.current };
+        }
+      });
+      if (Object.keys(map).length) return { map, usedLabel: t.label };
+    } catch (e) { /* try the next candidate */ }
+  }
+  throw new Error(`Could not find an AP Top 25 poll for or around Week ${week}`);
+}
+
+function validScore(s) {
+  if (s === undefined || s === null) return null;
+  const str = String(s).trim();
+  if (str === '' || str.includes('–') || (str.includes('-') && str.length === 1)) return null;
+  const n = parseInt(str, 10);
+  return isNaN(n) ? null : n;
+}
+
+/* ---------- COMMISH ---------- */
+
+let adminWeek = getDefaultWeek();
+let whoPickedWeek = getDefaultWeek();
+let ttWeek = getDefaultWeek();
+let ttMemberId = null;
+let adminGamesCache = [];
+
+function changeAdminWeek(delta) {
+  adminWeek = Math.min(Math.max(adminWeek + delta, 1), TOTAL_WEEKS);
+  loadAdminWeekGames();
+}
+
+async function loadCommishMembers() {
+  const members = await loadAllMembers();
+  const el = document.getElementById('commishMembersList');
+  el.innerHTML = members.map(m => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span>${m.username}</span>
+      <button class="secondary" onclick="toggleCommish('${m.id}', ${!m.is_commissioner})">${m.is_commissioner ? 'Remove' : 'Make commish'}</button>
+    </div>`).join('');
+}
+
+async function toggleCommish(memberId, makeCommish) {
+  const { error } = await sb.from('ncaafsurv_members').update({ is_commissioner: makeCommish }).eq('id', memberId);
+  if (error) { toast('Error: ' + error.message); return; }
+  await addLog(makeCommish ? 'Added commissioner' : 'Removed commissioner', memberId);
+  loadCommishMembers();
+}
+
+function changeWhoPickedWeek(delta) {
+  whoPickedWeek = Math.min(Math.max(whoPickedWeek + delta, 1), TOTAL_WEEKS);
+  renderWhoPicked();
+}
+
+async function renderWhoPicked() {
+  document.getElementById('whoPickedWeekLabel').textContent = 'Week ' + whoPickedWeek;
+  const members = await loadAllMembers();
+  const { data: picks } = await sb.from('ncaafsurv_survivor_picks')
+    .select('member_id').eq('season_year', SEASON_YEAR).eq('week_num', whoPickedWeek);
+  const pickedIds = new Set((picks || []).map(p => p.member_id));
+  const el = document.getElementById('whoPickedList');
+  el.innerHTML = members.map(m => `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+      <span>${m.username}</span>
+      <span style="color:${pickedIds.has(m.id) ? 'var(--accent)' : 'var(--gold)'}">${pickedIds.has(m.id) ? 'Picked' : 'Missing'}</span>
+    </div>`).join('') || '<div class="empty">No members yet</div>';
+}
+
+async function importWeek() {
+  const status = document.getElementById('importStatus');
+  status.textContent = 'Fetching AP Top 10...';
+  try {
+    const { map: rankMap, usedLabel } = await fetchApTop10(adminWeek);
+    status.textContent = 'Fetching games from ESPN...';
+    const events = await fetchWeekEvents(adminWeek);
+    if (!events.length) { status.textContent = 'ESPN has no games for this week (checked both the range and day-by-day).'; return; }
+
+    let imported = 0, skipped = 0, irrelevant = 0;
+    for (const ev of events) {
+      const comp = ev.competitions[0];
+      const home = comp.competitors.find(c => c.homeAway === 'home');
+      const away = comp.competitors.find(c => c.homeAway === 'away');
+      const homeRankInfo = rankMap[home.team.id];
+      const awayRankInfo = rankMap[away.team.id];
+      if (!homeRankInfo && !awayRankInfo) { irrelevant++; continue; } // no Top 10 team in this game
+
+      const espnId = ev.id;
+      const { data: existing } = await sb.from('ncaafsurv_games').select('id').eq('espn_event_id', espnId);
+      if (existing && existing.length) {
+        // Already imported — refresh ranks in case the poll shifted since last import.
+        await sb.from('ncaafsurv_games').update({
+          home_ap_rank: homeRankInfo ? homeRankInfo.rank : null,
+          away_ap_rank: awayRankInfo ? awayRankInfo.rank : null
+        }).eq('id', existing[0].id);
+        skipped++;
+        continue;
+      }
+
+      const { error } = await sb.from('ncaafsurv_games').insert({
+        espn_event_id: espnId,
+        week_num: adminWeek,
+        season_year: SEASON_YEAR,
+        home_team: home.team.displayName,
+        away_team: away.team.displayName,
+        home_ap_rank: homeRankInfo ? homeRankInfo.rank : null,
+        away_ap_rank: awayRankInfo ? awayRankInfo.rank : null,
+        kickoff: ev.date,
+        status: 'scheduled'
+      });
+      if (!error) imported++;
+    }
+    const expectedLabel = adminWeek === 1 ? 'preseason' : `Week ${adminWeek}`;
+    const pollNote = usedLabel !== expectedLabel ? ` (used the ${usedLabel} AP poll — none found for ${expectedLabel})` : '';
+    status.textContent = `Imported ${imported} new games, refreshed ${skipped} existing, skipped ${irrelevant} with no Top 10 team.${pollNote}`;
+    await addLog('Imported week', `Week ${adminWeek} — ${imported} new games${pollNote}`);
+    loadAdminWeekGames();
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function loadAdminWeekGames() {
+  document.getElementById('adminWeekLabel').textContent = 'Week ' + adminWeek;
+  const { data, error } = await sb.from('ncaafsurv_games')
+    .select('*').eq('week_num', adminWeek).eq('season_year', SEASON_YEAR).order('kickoff');
+  if (error) { toast('Error: ' + error.message); return; }
+  adminGamesCache = data || [];
+  const el = document.getElementById('adminGamesList');
+  if (!adminGamesCache.length) { el.innerHTML = '<div class="empty">No games imported for this week yet.</div>'; return; }
+  el.innerHTML = adminGamesCache.map(g => {
+    const away = g.away_ap_rank ? `#${g.away_ap_rank} ${g.away_team}` : g.away_team;
+    const home = g.home_ap_rank ? `#${g.home_ap_rank} ${g.home_team}` : g.home_team;
+    const score = g.status === 'final' ? ` — FINAL ${g.away_score}-${g.home_score}`
+      : g.status === 'in_progress' ? ` — LIVE ${g.away_score}-${g.home_score}` : '';
+    return `<div class="admin-game-row">${away} @ ${home}${score}<br><span style="color:var(--muted)">${fmtKickoff(g.kickoff)}</span></div>`;
+  }).join('');
+}
+
+async function gradeWeek(week) {
+  const events = await fetchWeekEvents(week);
+  const { data: weekGames } = await sb.from('ncaafsurv_games').select('id, espn_event_id').eq('week_num', week).eq('season_year', SEASON_YEAR);
+  const knownIds = new Set((weekGames || []).map(g => g.espn_event_id));
+  let updated = 0;
+  for (const ev of events) {
+    if (!knownIds.has(ev.id)) continue; // only grade games we actually imported (Top 10 games)
+    const comp = ev.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === 'home');
+    const away = comp.competitors.find(c => c.homeAway === 'away');
+    const stateType = comp.status.type.state;
+    const status_ = stateType === 'post' ? 'final' : (stateType === 'in' ? 'in_progress' : 'scheduled');
+    const homeScore = validScore(home.score);
+    const awayScore = validScore(away.score);
+    const { error } = await sb.from('ncaafsurv_games')
+      .update({ home_score: homeScore, away_score: awayScore, status: status_ })
+      .eq('espn_event_id', ev.id);
+    if (!error) updated++;
+  }
+  return updated;
+}
+
+async function refreshScoresAndGrade() {
+  const status = document.getElementById('gradeStatus');
+  status.textContent = 'Fetching live scores...';
+  try {
+    const updated = await gradeWeek(adminWeek);
+    status.textContent = `Updated ${updated} games. Field and My Picks reflect finals automatically.`;
+    loadAdminWeekGames();
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
+/* ---------- TIME TRAVEL ---------- */
+
+function changeTTWeek(delta) {
+  ttWeek = Math.min(Math.max(ttWeek + delta, 1), TOTAL_WEEKS);
+  renderTTGames();
+}
+
+async function openTimeTravel() {
+  const members = await loadAllMembers();
+  if (!ttMemberId && members.length) ttMemberId = members[0].id;
+  const sel = document.getElementById('ttMemberSelect');
+  sel.innerHTML = members.map(m => `<option value="${m.id}" ${m.id === ttMemberId ? 'selected' : ''}>${m.username}</option>`).join('');
+  sel.onchange = () => { ttMemberId = sel.value; renderTTGames(); };
+  renderTTGames();
+}
+
+let ttSelection = null;
+
+async function renderTTGames() {
+  document.getElementById('ttWeekLabel').textContent = 'Week ' + ttWeek;
+  const { data: games } = await sb.from('ncaafsurv_games')
+    .select('*').eq('week_num', ttWeek).eq('season_year', SEASON_YEAR).order('kickoff');
+  const weekGames = games || [];
+  const { data: existingPicks } = await sb.from('ncaafsurv_survivor_picks')
+    .select('*').eq('member_id', ttMemberId).eq('season_year', SEASON_YEAR);
+  const existing = (existingPicks || []).find(p => p.week_num === ttWeek);
+  ttSelection = existing ? { gameId: existing.game_id, team: existing.picked_team } : null;
+
+  const el = document.getElementById('ttGamesList');
+  if (!weekGames.length) { el.innerHTML = '<div class="empty">No games this week.</div>'; return; }
+  el.innerHTML = weekGames.map(g => {
+    const sides = [
+      { team: g.away_team, rank: g.away_ap_rank },
+      { team: g.home_team, rank: g.home_ap_rank }
+    ].filter(s => s.rank != null);
+    return `<div class="game">
+      <div class="game-meta"><span>${g.away_team} @ ${g.home_team}</span></div>
+      <div class="pick-row">
+        ${sides.map(s => {
+          const selected = ttSelection && ttSelection.gameId === g.id && ttSelection.team === s.team;
+          const teamEsc = s.team.replace(/'/g, "\\'");
+          return `<button class="pick-btn ${selected ? 'selected' : ''}" onclick="selectTTPick('${g.id}','${teamEsc}')"><span class="rank">#${s.rank}</span><b>${s.team}</b></button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectTTPick(gameId, team) {
+  ttSelection = { gameId, team };
+  renderTTGames();
+}
+
+async function saveTimeTravel() {
+  if (!ttSelection) { toast('Pick a team first'); return; }
+  const payload = {
+    member_id: ttMemberId,
+    week_num: ttWeek,
+    season_year: SEASON_YEAR,
+    game_id: ttSelection.gameId,
+    picked_team: ttSelection.team,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('ncaafsurv_survivor_picks')
+    .upsert(payload, { onConflict: 'member_id,week_num,season_year' });
+  const status = document.getElementById('ttStatus');
+  if (error) { status.textContent = 'Error: ' + error.message; return; }
+  await addLog('Time travel pick', `Week ${ttWeek} for member ${ttMemberId}: ${ttSelection.team}`);
+  status.textContent = 'Saved.';
+  toast('Saved on their behalf');
+}
+
+/* ---------- INIT ---------- */
+tryAutoLogin();
+</script>
+</body>
+</html>
